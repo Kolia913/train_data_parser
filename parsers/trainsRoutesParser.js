@@ -70,23 +70,28 @@ async function getSegments() {
         reject(err);
       })
       .on("end", async () => {
-        // await insertSegments();
-        // await insertTrains();
-        // await insertWagons();
-        // await insertSeats();
-        // await insertAdditionalServices();
-        // await insertWagonsAdditionalServices();
+        await insertSegments();
+        await insertTrains();
+        await insertWagons();
+        await insertSeats();
+        await insertAdditionalServices();
+        await insertWagonsAdditionalServices();
         await insertRouteParts(routeNamesWithSegments);
+        await cleanupWagonsWithoutRoutes();
         resolve();
       });
   });
 }
 
 async function insertSegments() {
+  console.log("Inserting segments...");
   const { rows: stations } = await pgClient.query("SELECT * FROM station");
   const { rows: segmentsFromDb } = await pgClient.query(
     "SELECT * FROM segment"
   );
+  if (segmentsFromDb.length) {
+    return;
+  }
   let mappedSegments = [];
   for (let segments of parsedSegments) {
     for (let i = 0; i < segments.length; i++) {
@@ -130,7 +135,7 @@ async function insertSegments() {
       uniqueSegments.push(item);
     }
   }
-  if (uniqueSegments.length && !segmentsFromDb.length) {
+  if (uniqueSegments.length) {
     let sqlQuery =
       "INSERT INTO segment(distance, d_station_id, a_station_id) VALUES ";
     for (let uniqueSegment of uniqueSegments) {
@@ -138,15 +143,14 @@ async function insertSegments() {
     }
     sqlQuery = sqlQuery.trim().slice(0, -1);
     sqlQuery += ";";
-    console.log(sqlQuery);
     const res = await pgClient.query(sqlQuery);
-    console.log("res - ", res);
+    console.log("Inserted segments:  ", res.rowCount);
   }
 }
 
 async function insertTrains() {
+  console.log("Inserting trains...");
   const { rows: trainsFromDb } = await pgClient.query("SELECT * FROM train");
-  console.log(trainsFromDb, parsedTrains);
   if (!trainsFromDb.length && parsedTrains.length) {
     let sqlQuery = "INSERT INTO train(number, type, class) VALUES ";
     for (let train of parsedTrains) {
@@ -155,38 +159,56 @@ async function insertTrains() {
     sqlQuery = sqlQuery.trim().slice(0, -1);
     sqlQuery += ";";
     const res = await pgClient.query(sqlQuery);
-    console.log("res - ", res);
+    console.log("Inserted trains:  ", res.rowCount);
   }
 }
 
 async function insertWagons() {
-  const wagonsQuery = await generateWagonsQuery();
-  const res = await pgClient.query(wagonsQuery);
-  console.log("res - ", res);
+  console.log("Inserting wagons...");
+  const { rows: wagonsFromDb } = await pgClient.query("SELECT * FROM wagon;");
+  if (!wagonsFromDb.length) {
+    const wagonsQuery = await generateWagonsQuery();
+    const res = await pgClient.query(wagonsQuery);
+    console.log("Inserted wagons:  ", res.rowCount);
+  }
 }
 
 async function insertSeats() {
-  const seatsQuery = await generateSeatsQuery();
-  console.log(seatsQuery);
-  const res = await pgClient.query(seatsQuery);
-  console.log("res - ", res);
+  console.log("Inserting seats...");
+  const { rows: seatsFromDb } = await pgClient.query("SELECT * FROM seat;");
+  if (!seatsFromDb.length) {
+    const seatsQuery = await generateSeatsQuery();
+    const res = await pgClient.query(seatsQuery);
+    console.log("Inserted seats:  ", res.rowCount);
+  }
 }
 
 async function insertAdditionalServices() {
-  const servicesQuery = generateAdditionalServiceQuery();
-  console.log(servicesQuery);
-  const res = await pgClient.query(servicesQuery);
-  console.log("res - ", res);
+  console.log("Inserting services...");
+  const { rows: servicesFromDb } = await pgClient.query(
+    "SELECT * FROM additional_service;"
+  );
+  if (!servicesFromDb.length) {
+    const servicesQuery = generateAdditionalServiceQuery();
+    const res = await pgClient.query(servicesQuery);
+    console.log("Inserted services:  ", res.rowCount);
+  }
 }
 
 async function insertWagonsAdditionalServices() {
-  const servicesQuery = await genereateWagonsServicesQuery();
-  console.log(servicesQuery);
-  const res = await pgClient.query(servicesQuery);
-  console.log("res - ", res);
+  console.log("Inserting wagons services...");
+  const { rows: servicesFromDb } = await pgClient.query(
+    "SELECT * FROM wagons_services;"
+  );
+  if (!servicesFromDb.length) {
+    const servicesQuery = await genereateWagonsServicesQuery();
+    const res = await pgClient.query(servicesQuery);
+    console.log("Inserted wagons services:  ", res.rowCount);
+  }
 }
 
 async function insertRouteParts(routeNamesWithSegments) {
+  console.log("Inserting route parts...");
   const { rows: wagons } =
     await pgClient.query(`SELECT w.id, w.number, w.type, t.number as train_number,
                           t.type as train_type, t.class as train_class
@@ -203,6 +225,13 @@ async function insertRouteParts(routeNamesWithSegments) {
                           ON s.d_station_id = depart_st.id
                           JOIN station arriv_st 
                           ON s.a_station_id = arriv_st.id;`);
+  const { rows: routePartsFromDb } = await pgClient.query(
+    "SELECT * FROM route_part;"
+  );
+
+  if (routePartsFromDb.length) {
+    return;
+  }
   const stopsTimesData = await readStopsTimesData();
   const routePartsData = [];
   for (let wagon of wagons) {
@@ -221,6 +250,7 @@ async function insertRouteParts(routeNamesWithSegments) {
             routeNameWithSegments.segments[i + 1][0] === item.arr_st_lon &&
             routeNameWithSegments.segments[i + 1][1] === item.arr_st_lat
         );
+
         if (foundSegment && stopTimesData) {
           let currentStopData = {};
           if (i === 0) {
@@ -242,10 +272,9 @@ async function insertRouteParts(routeNamesWithSegments) {
             const timeDelta =
               (prevSegment.distance / trainAvgSpeedByType[wagon.train_type]) *
               60;
-            const arr_time = +(
-              routePartsData.find((item) => item.segment_id === prevSegment.id)
-                .departure_time + timeDelta
-            ).toFixed();
+            const arr_time = +routePartsData
+              .find((item) => item.segment_id === prevSegment.id)
+              .departure_time?.toFixed();
             const dep_time = +(
               routePartsData.find((item) => item.segment_id === prevSegment.id)
                 .departure_time +
@@ -253,12 +282,8 @@ async function insertRouteParts(routeNamesWithSegments) {
               trainAvgStopTimeByType[wagon.train_type]
             ).toFixed();
             currentStopData = {
-              // arrival_time:
-              //   arr_time > 24 * 60 ? Math.abs(24 * 60 - arr_time) : arr_time,
               arrival_time: arr_time,
               departure_time: dep_time,
-              // departure_time:
-              //   dep_time > 24 * 60 ? Math.abs(24 * 60 - dep_time) : dep_time,
               order: stopTimesData.order + i,
             };
           }
@@ -278,9 +303,14 @@ async function insertRouteParts(routeNamesWithSegments) {
       }
     }
   }
+  let sqlQuery = `INSERT INTO route_part(arrival_time_minutes, departure_time_minutes, "order", price, wagon_id, segment_id) VALUES `;
   for (let routePart of routePartsData) {
-    //#TODO: insert to database
+    sqlQuery += `(${routePart.arrival_time}, ${routePart.departure_time}, ${routePart.order}, ${routePart.price}, ${routePart.wagon_id}, ${routePart.segment_id}),`;
   }
+  sqlQuery = sqlQuery.trim().slice(0, -1);
+  sqlQuery += ";";
+  const res = await pgClient.query(sqlQuery);
+  console.log("Inserted route parts:  ", res.rowCount);
 }
 
 async function readStopsTimesData() {
@@ -400,6 +430,22 @@ async function readTripsData() {
         resolve(parsedTrips);
       });
   });
+}
+
+async function cleanupWagonsWithoutRoutes() {
+  console.log("Cleaning wagons without routes...");
+  try {
+    await pgClient.query("BEGIN TRANSACTION;");
+    await pgClient.query(
+      "DELETE FROM wagons_services ws WHERE ws.wagon_id  NOT IN (SELECT DISTINCT wagon_id FROM route_part);"
+    );
+    await pgClient.query(
+      "DELETE FROM wagon w WHERE w.id NOT IN (SELECT DISTINCT wagon_id FROM route_part);"
+    );
+    await pgClient.query("COMMIT TRANSACTION;");
+  } catch (e) {
+    await pgClient.query("ROLLBACK TRANSACTION;");
+  }
 }
 
 function getTrainType(shortName) {

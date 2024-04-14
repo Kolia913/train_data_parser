@@ -3,6 +3,13 @@ const { faker } = require("@faker-js/faker");
 const dayjs = require("dayjs");
 
 async function makePassengers() {
+  console.log("Inserting passengers...");
+  const { rows: passengersFromDb } = await pgClient.query(
+    "SELECT * FROM passenger;"
+  );
+  if (passengersFromDb.length) {
+    return;
+  }
   const { rows: users } = await pgClient.query(`SELECT * FROM "user";`);
   const { rows: fares } = await pgClient.query("SELECT * FROM fare;");
   let sqlQuery =
@@ -32,9 +39,8 @@ async function makePassengers() {
   }
   sqlQuery = sqlQuery.trim().slice(0, -1);
   sqlQuery += ";";
-  console.log(sqlQuery);
   const res = await pgClient.query(sqlQuery);
-  console.log("res - ", res);
+  console.log("Inserted passengers:  ", res.rowCount);
 }
 
 module.exports = {

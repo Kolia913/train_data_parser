@@ -6,18 +6,26 @@ const { promisify } = require("node:util");
 const pbkdf2 = promisify(_pbkdf2);
 
 async function makeUsers(count) {
+  console.log("Inserting users...");
+  const { rows: usersFromDb } = await pgClient.query(`SELECT * FROM "user";`);
+  if (usersFromDb.length) {
+    return;
+  }
   let sqlQuery = `INSERT INTO "user"(phone, email, password, name) VALUES `;
   for (let i = 0; i < count; i++) {
     const phone = faker.phone.number();
     const email = faker.internet.email();
     const name = faker.person.fullName();
     const password = await getSaltedPasswordHash("password");
-    sqlQuery += `('${phone}', '${email}', '${password}', '${name}'),`;
+    sqlQuery += `('${phone}', '${email}', '${password}', '${name.replaceAll(
+      "'",
+      " "
+    )}'),`;
   }
   sqlQuery = sqlQuery.trim().slice(0, -1);
   sqlQuery += ";";
   const res = await pgClient.query(sqlQuery);
-  console.log("res - ", res);
+  console.log("Inserted users: ", res.rowCount);
 }
 
 async function getSaltedPasswordHash(password) {

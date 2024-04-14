@@ -1,3 +1,5 @@
+-- Useful queries used during the development process:
+
 SELECT json_build_object(
         'id', p.id,
         'first_name', p.first_name,
@@ -30,3 +32,24 @@ SELECT s.id,
     JOIN station depart_st ON s.d_station_id = depart_st.id
     JOIN station arriv_st ON s.a_station_id = arriv_st.id;
 
+SELECT DISTINCT type FROM wagon;
+SELECT DISTINCT type FROM train;
+
+SELECT json_agg(DISTINCT type) AS types
+FROM wagon;
+
+SELECT DISTINCT wagon_id FROM route_part ORDER BY wagon_id;
+
+SELECT COUNT(*) FROM wagon;
+
+BEGIN TRANSACTION;
+DELETE FROM wagons_services ws WHERE ws.wagon_id  NOT IN (SELECT DISTINCT wagon_id FROM route_part);
+DELETE FROM wagon w WHERE w.id NOT IN (SELECT DISTINCT wagon_id FROM route_part);
+COMMIT TRANSACTION;
+
+SELECT COUNT(*) FROM wagon;
+
+SELECT rp.wagon_id, json_agg(json_build_object('id', rp.id, 'price', rp.price, 'order', rp."order")) 
+as route_parts FROM route_part rp GROUP BY wagon_id;
+
+SELECT p.id, f.discount FROM passenger p JOIN fare f ON p.fare_id = f.id;

@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const Papa = require("papaparse");
+const { pgClient } = require("../dbClient");
 
 const options = {
   header: true,
@@ -10,7 +11,7 @@ const options = {
 const parsedStops = [];
 
 function getStops() {
-  const promises = [];
+  console.log("Inserting stops...");
   return new Promise((resolve, reject) => {
     fs.createReadStream(
       path.join(path.join(__dirname, "/../", "/data/", "/stops.csv"))
@@ -25,21 +26,21 @@ function getStops() {
       })
       .on("end", async () => {
         const names = getDistinctStopNames(parsedStops);
-        const isAllStopsInDb = isAllStopsInDatabase(names.length);
-        if (!isAllStopsInDb) {
+        const isStopsInDb = await isStopsInDatabase();
+        let sqlQuery = "INSERT INTO station(name, city, lon, lat) VALUES ";
+        if (!isStopsInDb) {
           for (let name of names) {
-            promises.push(
-              insertStopToDatabase(findStopByName(parsedStops, name))
-            );
+            const stopData = findStopByName(parsedStops, name);
+            sqlQuery += `('${stopData.name.replaceAll("'", " ")}', '${
+              stopData.city
+            }', ${stopData.lon}, ${stopData.lat}),`;
           }
+          sqlQuery = sqlQuery.trim().slice(0, -1);
+          sqlQuery += ";";
+          const res = await pgClient.query(sqlQuery);
+          console.log("Inserted stops:  ", res.rowCount);
         }
-        Promise.all(promises)
-          .then(() => {
-            resolve();
-          })
-          .catch((err) => {
-            reject(err);
-          });
+        resolve();
       });
   });
 }
@@ -63,25 +64,10 @@ function findStopByName(stopsData, stopName) {
   }
 }
 
-async function insertStopToDatabase(payload) {
-  if (payload === null) {
-    return;
-  }
-  try {
-    await pgClient.query(
-      "INSERT INTO station(name, city, lon, lat) VALUES ($1, $2, $3, $4);",
-      [payload.name, payload.city, payload.lon, payload.lat]
-    );
-    console.log("Inserted station: ", payload.name);
-  } catch (e) {
-    throw e;
-  }
-}
-
-async function isAllStopsInDatabase(uniqueStatiosCount) {
+async function isStopsInDatabase() {
   try {
     const res = await pgClient.query("SELECT * FROM station");
-    return res.rowCount >= uniqueStatiosCount;
+    return res.rowCount;
   } catch (e) {
     throw e;
   }
