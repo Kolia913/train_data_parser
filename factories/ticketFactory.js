@@ -28,14 +28,17 @@ async function makeTickets(ticketsPerPassenger) {
   for (let passenger of passengers) {
     for (let i = 0; i < ticketsPerPassenger; i++) {
       const filteredSeatsWagonsRotes = seatsWagonsRoutes.filter(
-        (item) => !boughtWagonsSeats.includes([item.seat_id, item.wagon_id])
+        (item) => !boughtWagonsSeats.includes(item.seat_id)
       );
+      if (!filteredSeatsWagonsRotes.length) {
+        continue;
+      }
       const randomWagon =
         filteredSeatsWagonsRotes[
-          faker.number.int({ min: 0, max: wagonRoutes.length - 1 })
+          faker.number.int({ min: 0, max: filteredSeatsWagonsRotes.length - 1 })
         ];
       const routePartsLength = randomWagon.route_parts?.length;
-      boughtWagonsSeats.push([randomWagon.seat_id, randomWagon.wagon_id]);
+      boughtWagonsSeats.push(randomWagon.seat_id);
 
       const minRouteIndex = faker.number.int({
         min: 0,

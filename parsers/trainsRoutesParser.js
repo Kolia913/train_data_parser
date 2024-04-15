@@ -440,6 +440,9 @@ async function cleanupWagonsWithoutRoutes() {
       "DELETE FROM wagons_services ws WHERE ws.wagon_id  NOT IN (SELECT DISTINCT wagon_id FROM route_part);"
     );
     await pgClient.query(
+      "DELETE FROM seat s WHERE s.wagon_id NO IN (SELECT DISTINCT wagon_id FROM route_part);"
+    );
+    await pgClient.query(
       "DELETE FROM wagon w WHERE w.id NOT IN (SELECT DISTINCT wagon_id FROM route_part);"
     );
     await pgClient.query("COMMIT TRANSACTION;");
