@@ -40,16 +40,38 @@ FROM wagon;
 
 SELECT DISTINCT wagon_id FROM route_part ORDER BY wagon_id;
 
-SELECT COUNT(*) FROM wagon;
-
 BEGIN TRANSACTION;
 DELETE FROM wagons_services ws WHERE ws.wagon_id  NOT IN (SELECT DISTINCT wagon_id FROM route_part);
 DELETE FROM wagon w WHERE w.id NOT IN (SELECT DISTINCT wagon_id FROM route_part);
 COMMIT TRANSACTION;
 
 SELECT COUNT(*) FROM wagon;
+SELECT COUNT(*) FROM seat;
 
 SELECT rp.wagon_id, json_agg(json_build_object('id', rp.id, 'price', rp.price, 'order', rp."order")) 
 as route_parts FROM route_part rp GROUP BY wagon_id;
 
-SELECT p.id, f.discount FROM passenger p JOIN fare f ON p.fare_id = f.id;
+SELECT p.id, f.discount, f.id as fare_id FROM passenger p JOIN fare f ON p.fare_id = f.id;
+
+SELECT s.id as seat_id, rp.wagon_id, json_agg(json_build_object('id', rp.id, 'price', rp.price, 'order', rp."order"))
+as route_parts FROM seat s JOIN wagon w ON s.wagon_id = w.id JOIN route_part rp ON rp.wagon_id = w.id GROUP BY s.id, rp.wagon_id;
+
+SELECT tr.ticket_id, json_agg(tr.route_part_id) as route_part_ids
+FROM ticket_route tr GROUP BY tr.ticket_id;
+
+SELECT '2011-01-01 00:00:00'::TIMESTAMP;
+
+SELECT t.id, t.usage_timestamp, (array_agg(a_s.id))[1] as available_service
+FROM ticket t JOIN seat s ON s.id = t.seat_id
+    JOIN wagon w ON s.wagon_id = w.id
+    JOIN wagons_services ws ON ws.wagon_id = w.id
+    JOIN additional_service a_s ON ws.additional_service_id = a_s.id
+GROUP BY t.id;
+
+SELECT t.id, t.usage_timestamp, (array_agg(json_build_object('id', a_s.id, 'price', a_s.price)))[1]
+    as available_service
+FROM ticket t JOIN seat s ON s.id = t.seat_id
+    JOIN wagon w ON s.wagon_id = w.id
+    JOIN wagons_services ws ON ws.wagon_id = w.id
+    JOIN additional_service a_s ON ws.additional_service_id = a_s.id
+GROUP BY t.id ;

@@ -6,7 +6,10 @@ const { getSegments } = require("./parsers/trainsRoutesParser");
 const { makeFares } = require("./factories/faresFactory");
 const { makeUsers } = require("./factories/userFactory");
 const { makePassengers } = require("./factories/passengerFactory");
-const { makeTickets } = require("./factories/ticketFactory");
+const {
+  makeTickets,
+  makeTicketServices,
+} = require("./factories/ticketFactory");
 
 pgClient
   .connect()
@@ -17,7 +20,8 @@ pgClient
       await makeFares();
       await makeUsers(100);
       await makePassengers();
-      await makeTickets();
+      await makeTickets(3);
+      await makeTicketServices();
       process.exit(0);
     } catch (e) {
       console.error(e);
