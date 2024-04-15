@@ -74,4 +74,4 @@ FROM ticket t JOIN seat s ON s.id = t.seat_id
     JOIN wagon w ON s.wagon_id = w.id
     JOIN wagons_services ws ON ws.wagon_id = w.id
     JOIN additional_service a_s ON ws.additional_service_id = a_s.id
-GROUP BY t.id ;
+GROUP BY t.id;
