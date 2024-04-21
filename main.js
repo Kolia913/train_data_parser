@@ -18,9 +18,9 @@ pgClient
       await getStops();
       await getSegments();
       await makeFares();
-      await makeUsers(100);
+      await makeUsers(500);
       await makePassengers();
-      await makeTickets(3);
+      await makeTickets(35);
       await makeTicketServices();
       process.exit(0);
     } catch (e) {
