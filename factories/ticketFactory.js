@@ -67,13 +67,13 @@ async function makeTickets(ticketsPerPassenger) {
         seat_to_identify_ticket: randomWagon.seat_id,
         route_parts: ticketRouteParts,
       });
-
+      const month = faker.number.int(1, 7);
       ticketSqlQuery += `(${ticketPrice}, ${priceWithDiscount}, '${dayjs()
-        .month(3)
+        .month(month)
         .add(faker.number.int({ min: 1, max: 15 }))
         .add(faker.number.int({ min: 0, max: 1440 }), "minute")
         .format("YYYY-MM-DD HH:mm:ss")}'::TIMESTAMP, '${dayjs()
-        .month(3)
+        .month(month)
         .add(faker.number.int({ min: 15, max: 31 }), "day")
         .add(faker.number.int({ min: 0, max: 1440 }), "minute")
         .format("YYYY-MM-DD HH:mm:ss")})'::TIMESTAMP, ${passenger.id}, ${
