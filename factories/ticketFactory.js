@@ -67,7 +67,7 @@ async function makeTickets(ticketsPerPassenger) {
         seat_to_identify_ticket: randomWagon.seat_id,
         route_parts: ticketRouteParts,
       });
-      const month = faker.number.int(1, 7);
+      const month = faker.number.int({ min: 2, max: 7 });
       ticketSqlQuery += `(${ticketPrice}, ${priceWithDiscount}, '${dayjs()
         .month(month)
         .add(faker.number.int({ min: 1, max: 15 }))
