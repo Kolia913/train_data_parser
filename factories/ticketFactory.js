@@ -68,14 +68,16 @@ async function makeTickets(ticketsPerPassenger) {
         route_parts: ticketRouteParts,
       });
       const month = faker.number.int({ min: 2, max: 7 });
-      ticketSqlQuery += `(${ticketPrice}, ${priceWithDiscount}, '${dayjs()
+      const purchaseDate = dayjs()
+        .year(2023)
         .month(month)
         .add(faker.number.int({ min: 1, max: 15 }))
-        .add(faker.number.int({ min: 0, max: 1440 }), "minute")
-        .format("YYYY-MM-DD HH:mm:ss")}'::TIMESTAMP, '${dayjs()
-        .month(month)
-        .add(faker.number.int({ min: 15, max: 31 }), "day")
-        .add(faker.number.int({ min: 0, max: 1440 }), "minute")
+        .add(faker.number.int({ min: 0, max: 1440 }), "minute");
+
+      ticketSqlQuery += `(${ticketPrice}, ${priceWithDiscount}, '${purchaseDate.format(
+        "YYYY-MM-DD HH:mm:ss"
+      )}'::TIMESTAMP, '${purchaseDate
+        .add(faker.number.int({ min: 1, max: 9 }), "days")
         .format("YYYY-MM-DD HH:mm:ss")})'::TIMESTAMP, ${passenger.id}, ${
         randomWagon.seat_id
       }, ${passenger.fare_id}),`;
